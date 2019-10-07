@@ -172,7 +172,7 @@ static char enclave_names[NUMBER_OF_SIGNED_ENCLAVES][MAX_SIGNED_ENCLAVE_NAME] = 
 "enclave.signed.1GB.so"
 };
 
-#define NUMBER_OF_ENTRIES 10
+#define NUMBER_OF_ENTRIES 50
 #define BILLION  1000000000.0
 /* Application entry */
 int main(int argc, char *argv[])
@@ -202,18 +202,30 @@ int main(int argc, char *argv[])
             sgx_destroy_enclave(global_eid);
         }   
     }
-    
+
+    FILE *fp;
+    fp = fopen("benchmark_results", "w");
+    if (fp == NULL)
+    {
+        fprintf(stderr, "Couldnt open or create a file for the benchmark data!\n");
+    }
+
     for (size_t i = 0; i < NUMBER_OF_SIGNED_ENCLAVES; i++)
     {
+        fprintf(fp, "%s raw data:\n", enclave_names[i]);
         double average = 0;
         for (size_t j = 0; j < NUMBER_OF_ENTRIES; j++)
         {
+            fprintf(fp, "%f,", enclave_results[i][j]);
             average += enclave_results[i][j];
         }
         average = average/(double) NUMBER_OF_ENTRIES;
+        fprintf(fp, "\ntotal average is: %f\n", average);
         printf("%s average execution time is : %f seconds\n", enclave_names[i], average);
     }
     
+    fclose(fp);
+
     printf("Info: Enclave initialisation benchmark successfully returned.\n");
 
     printf("Enter a character before exit ...\n");
