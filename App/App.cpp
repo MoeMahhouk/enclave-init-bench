@@ -190,9 +190,8 @@ int main(int argc, char *argv[])
         {
              clock_gettime(CLOCK_REALTIME, &start);
             /* Initialize the enclave */
-            if(initialize_enclave(enclave_names[i]) < 0){
-                printf("Enter a character before exit ...\n");
-                getchar();
+            if(initialize_enclave(enclave_names[i]) < 0)
+            {
                 return -1; 
             }
             clock_gettime(CLOCK_REALTIME, &end);
