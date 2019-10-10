@@ -148,59 +148,58 @@ void ocall_print_string(const char *str)
 }
 
 #define MAX_SIGNED_ENCLAVE_NAME 32
-#define NUMBER_OF_SIGNED_ENCLAVES 20
-static char enclave_names[NUMBER_OF_SIGNED_ENCLAVES][MAX_SIGNED_ENCLAVE_NAME] = {
-"enclave.signed.so",
-"enclave.signed.2MB.so",
-"enclave.signed.3MB.so",
-"enclave.signed.4MB.so",
-"enclave.signed.6MB.so",
-"enclave.signed.8MB.so",
-"enclave.signed.12MB.so",
-"enclave.signed.16MB.so",
-"enclave.signed.24MB.so",
-"enclave.signed.32MB.so",
-"enclave.signed.48MB.so",
-"enclave.signed.64MB.so",
-"enclave.signed.96MB.so",
-"enclave.signed.128MB.so",
-"enclave.signed.196MB.so",
-"enclave.signed.256MB.so",
-"enclave.signed.384MB.so",
-"enclave.signed.512MB.so",
-"enclave.signed.786MB.so",
-"enclave.signed.1GB.so"
+struct __encl {
+	char name[MAX_SIGNED_ENCLAVE_NAME];
+	uint64_t size;
 };
 
-#define NUMBER_OF_ENTRIES 50
-#define BILLION  1000000000.0
+#define NUMBER_OF_SIGNED_ENCLAVES 20
+static struct __encl enclaves[NUMBER_OF_SIGNED_ENCLAVES] = {
+	{"enclave.signed.so", 1024*1024},
+	{"enclave.signed.2MB.so", 2*1024*1024},
+	{"enclave.signed.3MB.so", 3*1024*1024},
+	{"enclave.signed.4MB.so", 4*1024*1024},
+	{"enclave.signed.6MB.so", 6*1024*1024},
+	{"enclave.signed.8MB.so", 8*1024*1024},
+	{"enclave.signed.12MB.so", 12*1024*1024},
+	{"enclave.signed.16MB.so", 16*1024*1024},
+	{"enclave.signed.24MB.so", 24*1024*1024},
+	{"enclave.signed.32MB.so", 32*1024*1024},
+	{"enclave.signed.48MB.so", 48*1024*1024},
+	{"enclave.signed.64MB.so", 64*1024*1024},
+	{"enclave.signed.96MB.so", 96*1024*1024},
+	{"enclave.signed.128MB.so", 128*1024*1024},
+	{"enclave.signed.196MB.so", 196*1024*1024},
+	{"enclave.signed.256MB.so", 256*1024*1024},
+	{"enclave.signed.384MB.so", 384*1024*1024},
+	{"enclave.signed.512MB.so", 512*1024*1024},
+	{"enclave.signed.786MB.so", 786*1024*1024},
+	{"enclave.signed.1GB.so", 1024*1024*1024}
+};
+
+void timespec_diff(struct timespec *start, struct timespec *stop,
+                   struct timespec *result)
+{
+    if ((stop->tv_nsec - start->tv_nsec) < 0) {
+        result->tv_sec = stop->tv_sec - start->tv_sec - 1;
+        result->tv_nsec = stop->tv_nsec - start->tv_nsec + 1000000000;
+    } else {
+        result->tv_sec = stop->tv_sec - start->tv_sec;
+        result->tv_nsec = stop->tv_nsec - start->tv_nsec;
+    }
+
+    return;
+}
+
+#define NUMBER_OF_ENTRIES 10
 /* Application entry */
 int main(int argc, char *argv[])
 {
     (void)(argc);
     (void)(argv);
     
-    double enclave_results[NUMBER_OF_SIGNED_ENCLAVES][NUMBER_OF_ENTRIES];
+    struct timespec enclave_results[NUMBER_OF_SIGNED_ENCLAVES][NUMBER_OF_ENTRIES];
     struct timespec start, end;
-
-    for (size_t i = 0; i < NUMBER_OF_SIGNED_ENCLAVES; i++)
-    {
-
-        for (size_t j = 0; j < NUMBER_OF_ENTRIES; j++)
-        {
-             clock_gettime(CLOCK_REALTIME, &start);
-            /* Initialize the enclave */
-            if(initialize_enclave(enclave_names[i]) < 0)
-            {
-                return -1; 
-            }
-            clock_gettime(CLOCK_REALTIME, &end);
-            double time_spent = (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec) / BILLION;
-            enclave_results[i][j] = time_spent;
-            /* Destroy the enclave */
-            sgx_destroy_enclave(global_eid);
-        }   
-    }
 
     FILE *fp;
     fp = fopen("benchmark_results", "w");
@@ -209,18 +208,31 @@ int main(int argc, char *argv[])
         fprintf(stderr, "Couldnt open or create a file for the benchmark data!\n");
     }
 
-    for (size_t i = 0; i < NUMBER_OF_SIGNED_ENCLAVES; i++)
+	for (size_t i = 0; i < NUMBER_OF_SIGNED_ENCLAVES; i++)
     {
-        fprintf(fp, "%s raw data:\n", enclave_names[i]);
-        double average = 0;
+        fprintf(fp, "%lu,", enclaves[i].size);
+        uint64_t average = 0;
         for (size_t j = 0; j < NUMBER_OF_ENTRIES; j++)
         {
-            fprintf(fp, "%f,", enclave_results[i][j]);
-            average += enclave_results[i][j];
-        }
-        average = average/(double) NUMBER_OF_ENTRIES;
-        fprintf(fp, "\ntotal average is: %f\n", average);
-        printf("%s average execution time is : %f seconds\n", enclave_names[i], average);
+             clock_gettime(CLOCK_REALTIME, &start);
+            /* Initialize the enclave */
+            if(initialize_enclave(enclaves[i].name) < 0)
+            {
+            	printf("error init enclave %lu\n", i);
+                return -1; 
+            }
+            clock_gettime(CLOCK_REALTIME, &end);
+//            double time_spent = (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec) / BILLION;
+            timespec_diff(&start, &end, &(enclave_results[i][j]));
+//            enclave_results[i][j] = time_spent;
+            /* Destroy the enclave */
+            sgx_destroy_enclave(global_eid);
+  			average += enclave_results[i][j].tv_sec * 1000000000 + enclave_results[i][j].tv_nsec;          
+//            average += enclave_results[i][j].tv_sec + (enclave_results[i][j].tv_nsec / 1000000000.0);
+        }   
+        average = average/NUMBER_OF_ENTRIES;
+        fprintf(fp, "%lu\n", average);
+        fflush(fp);
     }
     
     fclose(fp);
